@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>template | URLs</title>
+</head>
+<body>
+    <h1>Dhango Templates : URLs</h1>
+
+    <h3>Path variable</h3>
+    <div><a href="{% url 'app:product' id=123 %}">123번 product</a></div>
+    
+    <h3>Query String</h3>
+    <!-- <a href="{% url 'app:search' %}?q={{q}}&lang={{lang}}">
+        검색어 {{ q }} | 언어 {{ lang }}
+    </a> -->
+    <a href="{% url 'app:search' %}?q={{requser.GET.q}}&lang={{requser.GET.lang}}">
+        검색어 {{ requser.GET.q }} | 언어 {{ requser.GET.lang }}
+    </a>
+</body>
+</html>

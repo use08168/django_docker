@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% load humanize %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>templates | Basics</title>
+    <style>
+        table {
+            border: 1px solid #000;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #000;
+            padding: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Django Templates : Basics</h1>
+
+    {% comment %}
+        여러줄 주석
+        여기
+    {% endcomment %}
+    
+    <h3>Variables</h3>
+    <p>내 이름은 {{ name }}</p>
+    <p>{{ job }} 이죠</p>
+
+    <h3>Statement</h3>
+    <h5>조건 처리</h5>
+        {% if height > 180 %}
+            <p>어른</p>
+        {% else %}
+            <p>어린이</p>
+        {% endif %}
+
+    <h5>반복 처리</h5>
+        <ul>
+            {% for h in hobby  %}
+                <li>{{ h }}</li>
+            {% endfor %}
+        </ul>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>NAME</th>
+                <th>STUDY HARD</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+                <tr>
+                    <td>{{user.id}}</td>
+                    <td>{{user.name}}</td>
+                    <td>
+                        <input type="checkbox" {% if user.study %}checked{% endif %}> 
+                    </td>
+                </tr>
+
+                {% empty %}
+
+                <tr>
+                    <td colspan="3">맴버가 존재하지 않습니다.</td>
+                </tr>    
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h3>Filter</h3>
+    <ul>
+        <li>가격: {{ price|floatformat:2 }}원</li>
+        <li>가격: {{ price|intcomma }}원</li>
+        <li>자고 일어났더니 키가 컸어! 내 키는 {{height|add:2}}cm 이야!!!</li>
+        <li>오늘은 {{ today|date:"Y/m/d (D) h:i:s" }} 입니다</li>
+        <li>My name is {{ eng_name|upper }}</li>
+        <li>My name is {{ eng_name|length }} length</li>
+    </ul>
+
+    <h3>Variable Declaration</h3>
+    {% now 'Y' as current_year %}
+        <p>올해 {{ current_year }}년</p>
+        
+    {% with '순두부찌개' as lunch_menu %}
+        <p>오늘 점심 메뉴는 {{ lunch_menu }}로 결정!</p>
+    {% endwith %}
+
+</body>
+</html>

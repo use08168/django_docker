@@ -1,0 +1,56 @@
+GET http://127.0.0.1:8000
+Accept: application/json
+
+###
+
+GET http://127.0.0.1:8000/hello/kim
+Accept: application/json
+
+###
+
+GET http://127.0.0.1:8000/path_params/items/123
+Accept: application/json
+
+###
+
+GET http://127.0.0.1:8000/path_params/users/123-123
+Accept: application/json
+
+###
+
+GET http://127.0.0.1:8000/path_params/users/me
+Accept: application/json
+
+###
+
+GET http://127.0.0.1:8000/query_params/items?skip=0&limit=3
+Accept: application/json
+
+###
+
+GET http://127.0.0.1:8000/query_params/products/qwer?q=test
+Accept: application/json
+
+###
+
+POST http://127.0.0.1:8000/request_body/items/123
+Content-Type: application/json
+
+{
+    "name":"MacBook Pro",
+    "description" : "M3 Pro 14inch",
+    "price" : 2999.99,
+    "tax" : 300
+}
+
+###
+
+PUT  http://127.0.0.1:8000/request_body/items/123
+Content-Type: application/json
+
+{
+    "name":"MacBook Pro",
+    "description" : "M3 Pro 14inch",
+    "price" : 2999.99,
+    "tax" : 300
+}

@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>templates | {% block title %}  APP {% endblock title %}</title>
+</head>
+<body>
+    {% include 'layout/header.html'%}
+
+    <main>
+        {% block content %}
+        {% include 'layout/02_layout.html'%}
+        
+
+        {% endblock content %}
+    </main>
+
+    {% include 'layout/footer.html'%}
+</body>
+</html>

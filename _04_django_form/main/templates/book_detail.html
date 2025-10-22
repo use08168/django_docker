@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{object.title}}</title>
+</head>
+<body>
+    {# <p>{{book}}</p> #}
+
+    <h1>{{object.title}}</h1>
+    <p>{{object.author}}</p>
+    <p>{{object.published_date}}</p>
+    <p>{{object.price}}</p>
+
+    <a href="{% url 'main:book_list' %}">목록</a>
+
+    <!-- 수정 -->
+    
+    <!-- 삭제 -->
+</form>
+</body>
+</html>
