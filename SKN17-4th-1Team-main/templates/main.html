@@ -1,0 +1,567 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chative Jobs</title>
+    <link rel="icon" href="{% static 'images/logo.png' %}" type="image/x-icon"> 
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        @font-face {
+        font-family: 'AppleFont';
+        src: url('{% static 'fonts/AppleSDGothicNeoB.ttf' %}') format('truetype');
+        }
+        html {
+            scroll-behavior: smooth;
+        }
+        body {
+            font-family: 'AppleFont', sans-serif;
+            background-color: #000000;
+            color: #FFFFFF;
+            overflow: hidden; 
+        }
+        ::-webkit-scrollbar {
+            display: none;
+        }
+        .section {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 2rem;
+            box-sizing: border-box;
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 1s ease-out, transform 1s ease-out;
+        }
+        .section.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        header {
+            background: linear-gradient(to bottom, rgba(255, 255, 255, 0.5), transparent);
+        }
+        .mti5 {
+            margin-top: 1.25rem !important;
+        }
+        
+        [data-modal-back] {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            color: #4b5563; /* text-gray-600 */
+            transition: color 0.2s;
+        }
+        [data-modal-back]:hover {
+            color: #000000; /* text-black */
+        }
+        
+    </style>
+    
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        
+        // --- 자동 스크롤 ---
+        const sections = document.querySelectorAll('.section');
+        let currentSectionIndex = 0;
+        let autoScrollInterval;
+        let userInteracted = false;
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, { threshold: 0.1 });
+        sections.forEach(section => observer.observe(section));
+        function startAutoScroll() {
+            if (sections.length < 2) return;
+            if (sections[0].classList.contains('visible')) {
+                autoScrollInterval = setInterval(() => {
+                    if (userInteracted) {
+                        clearInterval(autoScrollInterval);
+                        document.body.style.overflow = 'auto'; 
+                        return;
+                    }
+                    currentSectionIndex++;
+                    if (currentSectionIndex < sections.length) {
+                        sections[currentSectionIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    } else {
+                        clearInterval(autoScrollInterval);
+                        document.body.style.overflow = 'auto'; 
+                    }
+                }, 2000); 
+            } else {
+                setTimeout(startAutoScroll, 100);
+            }
+        }
+        function handleUserInteraction() {
+            userInteracted = true;
+            clearInterval(autoScrollInterval);
+            document.body.style.overflow = 'auto'; 
+            window.removeEventListener('wheel', handleUserInteraction);
+            window.removeEventListener('touchmove', handleUserInteraction);
+        }
+        window.addEventListener('wheel', handleUserInteraction);
+        window.addEventListener('touchmove', handleUserInteraction);
+        startAutoScroll();
+
+        
+        // --- 핵심 기능 JS ---
+        function getCsrfToken() {
+            const v = `; ${document.cookie}`;
+            const p = v.split(`; csrftoken=`);
+            if (p.length === 2) return p.pop().split(';').shift();
+            return null;
+        }
+        window.__email_verified = false; 
+
+        const open = el=> el?.classList.remove('hidden');
+        const close = el=> el?.classList.add('hidden');
+        
+        // [수정] 모든 모달 정의
+        const loginModal = document.getElementById('login-modal');
+        const policyModal = document.getElementById('policy-modal');
+        
+        const joinStep1Modal = document.getElementById('join-step1-modal');
+        const joinStep2Modal = document.getElementById('join-step2-modal');
+        const joinStep3Modal = document.getElementById('join-step3-modal');
+
+        // [수정] main_style.html의 ID로 변경
+        const pwdResetModal = document.getElementById('password-reset-modal'); // (구 pwd-request-modal)
+        const pwdNewModal = document.getElementById('new-password-modal');     // (구 pwd-change-modal)
+        
+        document.getElementById('login-btn').addEventListener('click', ()=> open(loginModal));
+        document.getElementById('join-btn').addEventListener('click', ()=> open(joinStep1Modal));
+        
+        document.addEventListener('click', (e)=>{ 
+            if(e.target.closest('[data-modal-close]')) {
+                close(e.target.closest('[data-modal]'));
+            }
+            if(e.target.matches('[data-modal]')) {
+                close(e.target);
+            }
+        });
+        
+        // --- 회원가입 3단계 팝업 흐름 ---
+        document.getElementById('join-step1-next-btn').addEventListener('click', () => {
+            close(joinStep1Modal);
+            open(joinStep2Modal);
+        });
+        document.getElementById('join-step2-back-btn').addEventListener('click', () => {
+            close(joinStep2Modal);
+            open(joinStep1Modal);
+        });
+        document.getElementById('join-step3-back-btn').addEventListener('click', () => {
+            close(joinStep3Modal);
+            open(joinStep2Modal);
+        });
+
+        
+        // --- [수정] 비밀번호 2단계 팝업 흐름 (main_style.html의 ID 사용) ---
+        // 1. 로그인 -> 비밀번호 재설정 (main_style.html의 #forgot-password-btn)
+        document.getElementById('forgot-password-btn').addEventListener('click', ()=>{ 
+            close(loginModal); 
+            open(pwdResetModal); 
+        });
+        
+        // 2. 비밀번호 재설정 -> 로그인 (뒤로가기)
+        document.getElementById('password-reset-back-btn').addEventListener('click', () => {
+            close(pwdResetModal);
+            open(loginModal);
+        });
+
+        // 3. 비밀번호 재설정 -> 새 비밀번호 (다음)
+        // (main_style.html의 #verify-temp-password-btn은 API 기능 없이 단순 이동으로 사용)
+        document.getElementById('verify-temp-password-btn').addEventListener('click', () => {
+            close(pwdResetModal);
+            open(pwdNewModal);
+        });
+        
+        // 4. 새 비밀번호 -> 비밀번호 재설정 (뒤로가기)
+        document.getElementById('new-password-back-btn').addEventListener('click', () => {
+            close(pwdNewModal);
+            open(pwdResetModal);
+        });
+        // --- 비밀번호 흐름 끝 ---
+
+
+        // [유지] 로그인 기능
+        document.getElementById('login-submit').addEventListener('click', async ()=>{
+          const id = document.getElementById('login-id').value.trim();
+          const pw = document.getElementById('login-pw').value.trim();
+          if(!/^\S+@\S+\.\S+$/.test(id)){ alert('이메일 주소 형식이 올바르지 않습니다.'); return; }
+          const fd = new FormData(); fd.append('email', id); fd.append('password', pw);
+          const r = await fetch('/uauth/api/login/', { method:'POST', body: fd, headers: { 'X-CSRFToken': getCsrfToken() }});
+          const j = await r.json();
+          if(j.pending){
+            if(confirm(j.message||'삭제 예정 계정입니다. 복구 하시겠습니까?')){
+              const rf = new FormData(); rf.append('email', id.includes('@')?id:'');
+              const rr = await fetch('/uauth/api/restore/', { method:'POST', body: rf, headers: { 'X-CSRFToken': getCsrfToken() }});
+              const rj = await rr.json(); if(rj.ok){ alert('복구되었습니다. 다시 로그인해 주세요.'); } else { alert(rj.message||'복구 실패'); }
+            }
+            return;
+          }
+          if(j.ok){
+            if(j.require_password_change){ 
+                alert('임시 비밀번호로 로그인했습니다. 비밀번호를 수정해주세요.'); 
+                close(loginModal); 
+                open(pwdNewModal); // [수정] 새 비밀번호 모달로 이동
+            }
+            else window.location.href='/llm/chat/';
+          } else {
+            alert(j.message||'로그인 실패');
+          }
+        });
+
+        // [유지] 회원가입 기능 (3단계 모달 ID 사용)
+        document.getElementById('sign-submit').addEventListener('click', async ()=>{
+          const em = document.getElementById('join-step3-email-readonly').value.trim();
+          const p1 = document.getElementById('sign-pw1').value.trim(); 
+          const p2 = document.getElementById('sign-pw2').value.trim(); 
+          const ag = 'yes'; 
+          
+          if(!/^\S+@\S+\.\S+$/.test(em)){ alert('유효한 이메일 형식이 아닙니다.'); return; }
+          if(!window.__email_verified){ alert('이메일 인증이 필요합니다.'); return; }
+          
+          const fd = new FormData(); fd.append('email', em); fd.append('password1', p1); fd.append('password2', p2); fd.append('agree', ag);
+          const r = await fetch('/uauth/api/sign/', { method:'POST', body: fd, headers: { 'X-CSRFToken': getCsrfToken() }});
+          const j = await r.json(); 
+          if(j.ok){ 
+            alert('회원가입 완료. 로그인해 주세요.'); 
+            close(joinStep3Modal); 
+            open(loginModal); 
+          } else { 
+            alert(j.message||'회원가입 실패'); 
+          }
+        });
+        
+        // --- [유지] 이메일 인증 ---
+        const sendEmailCode = async (e) => {
+          e.preventDefault(); 
+          const em=document.getElementById('sign-email').value.trim(); 
+          if(!/^\S+@\S+\.\S+$/.test(em)){ alert('유효한 이메일 형식이 아닙니다.'); return; }
+          const fd=new FormData(); fd.append('email', em);
+          const r=await fetch('/uauth/email/send-code/', {method:'POST', body:fd, headers:{'X-CSRFToken':getCsrfToken()}});
+          const j=await r.json(); 
+          if(j.status==='ok'){ alert('인증번호를 전송했습니다.'); } 
+          else { alert(j.message||'전송 실패'); }
+        };
+        document.getElementById('email-send-code').addEventListener('click', sendEmailCode);
+        document.getElementById('email-resend-code').addEventListener('click', sendEmailCode);
+        
+        document.getElementById('email-verify-code').addEventListener('click', async (e)=>{
+          e.preventDefault(); 
+          const em=document.getElementById('sign-email').value.trim(); 
+          const code=document.getElementById('email-code').value.trim();
+          const fd=new FormData(); fd.append('email', em); fd.append('code', code);
+          const r=await fetch('/uauth/email/verify-code/', {method:'POST', body:fd, headers:{'X-CSRFToken':getCsrfToken()}});
+          const j=await r.json(); 
+          if(j.status==='ok'){ 
+            window.__email_verified=true; 
+            alert('이메일 인증 완료');
+            document.getElementById('join-step3-email-readonly').value = em;
+            close(joinStep2Modal);
+            open(joinStep3Modal);
+          } else { 
+            alert(j.message||'인증 실패'); 
+          }
+        });
+        // --- 이메일 인증 끝 ---
+
+
+        // --- [수정] 비밀번호 찾기/변경 API (main_style.html의 ID에 연결) ---
+        
+        // 1. 비밀번호 찾기 (요청)
+        // 'pwd-request-btn' (1번 모달의 '임시 비밀번호 이메일로 받기') 버튼 클릭 시
+        document.getElementById('pwd-request-btn').addEventListener('click', async ()=>{
+          const em = document.getElementById('reset-email').value.trim(); 
+          if(!/^\S+@\S+\.\S+$/.test(em)){ alert('유효한 이메일 형식이 아닙니다.'); return; }
+          const fd = new FormData(); fd.append('email', em);
+          const r = await fetch('/uauth/api/password/request_temp/', { method:'POST', body: fd, headers: { 'X-CSRFToken': getCsrfToken() }});
+          const j = await r.json(); 
+          if(j.ok){ alert('임시 비밀번호를 전송했습니다. 메일을 확인하세요.'); } 
+          else { alert(j.message||'요청 실패'); }
+        });
+
+        // 2. 비밀번호 변경
+        // 'pwd-change-btn' (2번 모달의 '비밀번호 변경 확인') 버튼 클릭 시
+        document.getElementById('pwd-change-btn').addEventListener('click', async ()=>{
+          const cur = document.getElementById('current-password').value.trim();
+          const p1 = document.getElementById('new-password').value.trim();
+          const p2 = document.getElementById('new-password-confirm').value.trim();
+          
+          const fd = new FormData(); fd.append('current_password', cur); fd.append('password1', p1); fd.append('password2', p2);
+          const r = await fetch('/uauth/api/password/change/', { method:'POST', body: fd, headers: { 'X-CSRFToken': getCsrfToken() }});
+          const j = await r.json(); 
+          if(j.ok){ alert('비밀번호가 변경되었습니다. 다시 로그인해 주세요.'); window.location.href='/llm/'; } 
+          else { alert(j.message||'변경 실패'); }
+        });
+
+        const modal=document.getElementById('policy-modal');
+        const title=document.getElementById('policy-title');
+        const body=document.getElementById('policy-body');
+        const popopen=(t,html)=>{ title.textContent=t; body.innerHTML=html; modal.classList.remove('hidden'); };
+        
+        const fetchAndShowPolicy = async (e, type) => {
+            e.preventDefault();
+            const url = (type === 'terms') ? '/llm/policy/terms' : '/llm/policy/privacy';
+            const titleText = (type === 'terms') ? '서비스 이용약관' : '개인정보 보호정책';
+            const r = await fetch(url); 
+            const j = await r.json(); 
+            popopen(titleText, j.html||'');
+        };
+
+        document.getElementById('open-terms').addEventListener('click', (e) => fetchAndShowPolicy(e, 'terms'));
+        document.getElementById('open-privacy').addEventListener('click', (e) => fetchAndShowPolicy(e, 'privacy'));
+      });
+    </script>
+</head>
+<body class="bg-black text-white" data-authenticated="{{ is_authenticated|yesno:'1,0' }}">
+  <form style="display:none">{% csrf_token %}</form>
+  
+  <header class="fixed top-0 left-0 right-0 p-6 z-50 flex justify-between items-center">
+      <div></div>
+      <div class="flex items-center space-x-4">
+          <button id="login-btn" class="text-gray-300 hover:text-white transition-colors duration-300 text-sm">로그인</button>
+          <button id="join-btn" class="bg-gray-200 text-black px-4 py-1.5 rounded-full text-sm hover:bg-white transition-colors duration-300">회원가입</button>
+      </div>
+  </header>
+
+  <div id="landing-page">
+      <div class="section">
+          <h1 class="text-5xl md:text-6xl mb-4 text-gray-100">CHATIVE JOBS</h1>
+          <p class="text-xl md:text-2xl text-gray-200">마케팅 전략, 다시 생각할 시간.</p>
+      </div>
+      <div class="section">
+          <h2 class="text-4xl md:text-5xl mb-6 text-gray-100">전략의 본질. 잡스의 언어.</h2>
+          <p class="text-base md:text-lg max-w-2xl leading-relaxed text-gray-400">
+              파인튜닝으로 완성된 잡스의 뉴럴 엔진.<br>수백만 단어에서 추출한 그의 철학. 수십 번의 키노트에서 증명된 그의 화법.<br>수십 통의 이메일에서 드러난 그의 본질.
+          </p>
+      </div>
+      <div class="section">
+          <h2 class="text-4xl md:text-5xl mb-6 text-gray-100">궁극의 브랜딩 피드백 시스템.</h2>
+          <p class="text-base md:text-lg max-w-2xl leading-relaxed text-gray-400">어떤 기획서든, 그 핵심을 꿰뚫는 통찰력.<br>여기에 업계 사상 가장 정직한 피드백까지.</p>
+      </div>
+      <div class="section">
+          <h2 class="text-4xl md:text-5xl mb-6 text-gray-100">당신의 비전. 더 단단하게.</h2>
+          <p class="text-base md:text-lg max-w-2xl leading-relaxed text-gray-400">새롭게 선보이는 Chative Jobs는 당신의 아이디어를 위한 담금질의 과정입니다.<br>복잡한 기능 목록을 늘어놓는 대신, 사용자에게 전할 단 하나의 가치를 찾아내죠.<br>소음을 걷어내고 본질만 남기는 것. 위대한 전략은 바로 거기서 시작되니까.</p>
+      </div>
+      <div class="section">
+          <h2 class="text-4xl md:text-5xl mb-6 text-gray-100">단지 AI가 아니다.<br>잡스다.</h2>
+          <p class="text-base md:text-lg max-w-2xl leading-relaxed text-gray-400">단순히 정보를 요약하는 챗봇은 많습니다.<br>하지만 Chative Jobs는 관점을 제시합니다.<br>당신의 아이디어가 세상을 바꿀 수 있는지, 아니면 그저 그런 제품으로 남을 것인지.<br>그 차이를 만듭니다.</p>
+      </div>
+      <div class="section">
+          <h2 class="text-4xl md:text-5xl mb-6 text-gray-100">이제, 당신의 차례다.</h2>
+          <p class="text-base md:text-lg max-w-2xl leading-relaxed text-gray-400">당신의 기획서를 업로드하고,<br>가장 위대한 마케터의 피드백을 경험하세요.</p>
+      </div>
+  </div>
+
+  <div id="login-modal" data-modal class="hidden fixed inset-0 z-50 bg-black bg-opacity-70 flex items-center justify-center p-4">
+    <div class="bg-[#f0f0f0] rounded-xl px-8 py-10 max-w-md w-full mx-4 relative">
+        <button data-modal-close class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </button>
+        <div class="w-full">
+            <label for="login-id" class="block text-sm text-[#333333] mb-2">이메일</label>
+            <input type="email" id="login-id" class="w-full p-2.5 border border-gray-300 rounded-lg bg-white text-black text-sm" placeholder="이메일"/>
+            <label for="login-pw" class="block text-sm text-[#333333] mb-2 mt-5">비밀번호</label>
+            <input type="password" id="login-pw" class="w-full p-2.5 border border-gray-300 rounded-lg bg-white text-black text-sm" placeholder="비밀번호"/>
+            <div class="text-right w-full">
+                <button id="forgot-password-btn" class="text-xs text-blue-600 mt-2">비밀번호 찾기 →</button>
+            </div>
+            <button id="login-submit" class="w-full bg-[#8e8e8e] text-white py-2.5 rounded-lg hover:bg-opacity-90 text-sm mt-6">
+                로그인
+            </button>
+        </div>
+    </div>
+  </div>
+
+  
+  <div id="join-step1-modal" data-modal class="hidden fixed inset-0 z-50 bg-black bg-opacity-70 flex items-center justify-center p-4">
+     <div class="bg-[#f0f0f0] text-black rounded-xl px-8 pt-12 pb-10 max-w-md w-full mx-4 relative">
+            <button data-modal-close class="absolute top-4 right-4 text-gray-400 hover:text-gray-500 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+            <div class="text-center">
+                <h2 class="text-lg text-[#333333] mb-4">Chative Jobs에 오신 것을 환영합니다.</h2>
+                <p class="text-xs text-[#8e8e8e] mb-12 leading-relaxed">
+                    계정 만들기를 클릭하면
+                    <a href="#" id="open-terms" class="text-blue-600 hover:underline">서비스 이용 약관</a>에 동의하고<br>
+                    <a href="#" id="open-privacy" class="text-blue-600 hover:underline">개인정보 보호정책</a>을 인정하는 것으로 간주됩니다.
+                </p>
+                <button id="join-step1-next-btn" class="w-full bg-[#8e8e8e] text-white py-2.5 rounded-lg hover:bg-opacity-90 transition-colors text-sm">
+                    계정 만들기
+                </button>
+            </div>
+        </div>
+  </div>
+
+  <div id="join-step2-modal" data-modal class="hidden fixed inset-0 z-50 bg-black bg-opacity-70 flex items-center justify-center p-4">
+    <div class="bg-[#f0f0f0] text-black rounded-xl px-8 py-6 max-w-sm w-full mx-4 relative">
+            <button id="join-step2-back-btn" data-modal-back>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+            </button>
+            <button data-modal-close class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+            
+            <form class="w-full mt-10">
+                <label for="sign-email" class="block text-sm text-[#333333] mb-2">이메일</label>
+                <input type="email" id="sign-email" class="w-full p-2.5 border border-gray-300 rounded-lg bg-white text-black text-sm" />
+                <p class="text-red-500 text-xs mt-1.5 h-4 hidden">이메일 형식이 올바르지 않습니다.</p> 
+                
+                <button id="email-send-code" class="w-full bg-[#8e8e8e] text-white py-2.5 rounded-lg hover:bg-opacity-90 text-sm mt-4">
+                    이메일 인증코드 발송
+                </button>
+                <div class="text-right w-full">
+                    <button id="email-resend-code" type="button" class="text-xs text-blue-600 mt-2">코드 재발송 →</button>
+                </div>
+
+                <label for="email-code" class="block text-sm text-[#333333] mb-2 mt-5">발송 코드 입력</label>
+                <input type="text" id="email-code" class="w-full p-2.5 border border-gray-300 rounded-lg bg-white text-black text-sm" />
+                <p class="text-red-500 text-xs mt-1.5 h-4 hidden">입력하신 코드가 일치하지 않습니다.</p> 
+
+                <button id="email-verify-code" class="w-full bg-[#8e8e8e] text-white py-2.5 rounded-lg hover:bg-opacity-90 text-sm mt-8">
+                    코드 확인
+                </button>
+            </form>
+        </div>
+  </div>
+
+  <div id="join-step3-modal" data-modal class="hidden fixed inset-0 z-50 bg-black bg-opacity-70 flex items-center justify-center p-4">
+    <div class="bg-[#f0f0f0] text-black rounded-xl px-8 py-6 max-w-md w-full mx-4 relative">
+            <button id="join-step3-back-btn" data-modal-back>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+            </button>
+            <button data-modal-close class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+            
+            <form class="w-full mt-10">
+                <label for="join-step3-email-readonly" class="block text-sm text-[#333333] mb-2">이메일</label>
+                <input type="email" id="join-step3-email-readonly" class="w-full p-2.5 border border-gray-300 rounded-lg bg-gray-200 text-gray-500 text-sm" value="example@email.com" disabled />
+
+                <label for="sign-pw1" class="block text-sm text-[#333333] mb-2 mt-5">비밀번호 입력</label>
+                <input type="password" id="sign-pw1" class="w-full p-2.5 border border-gray-300 rounded-lg bg-white text-black text-sm" />
+                <p class="text-red-500 text-xs mt-1.5 h-4 hidden">비밀번호가 일치하지 않습니다.</p> 
+
+                <label for="sign-pw2" class="block text-sm text-[#333333] mb-2 mt-5">비밀번호 재입력</label>
+                <input type="password" id="sign-pw2" class="w-full p-2.5 border border-gray-300 rounded-lg bg-white text-black text-sm" />
+                <p class="text-red-500 text-xs mt-1.5 h-4 hidden">비밀번호가 일치하지 않습니다.</p> 
+
+              <ul class="text-xs text-gray-500 mt-5 list-disc list-inside space-y-1">
+                      <p>비밀번호를 입력하실 때는 아래 사항을 지켜주셔야 합니다.</p>
+                      <li>비밀번호는 최소 5자 이상 최대 16자 제한</li>
+                      <li>영문 대/소문자, 숫자, 특수문자 포함</li>
+              </ul>
+                
+                <button id="sign-submit" type="button" class="w-full bg-[#8e8e8e] text-white py-2.5 rounded-lg hover:bg-opacity-90 text-sm mt-8">
+                    회원가입 완료
+                </button>
+            </form>
+        </div>
+  </div>
+
+
+  <div id="password-reset-modal" data-modal class="hidden fixed inset-0 z-50 bg-black bg-opacity-70 flex items-center justify-center p-4">
+    <div class="bg-[#f0f0f0] text-black rounded-xl px-8 py-6 max-w-md w-full mx-4 relative">
+        <button id="password-reset-back-btn" data-modal-back>
+             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+        </button>
+        <button data-modal-close class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </button>
+        
+        <div class="w-full mt-10">
+            <label for="reset-email" class="block text-sm text-[#333333] mb-2">이메일</label>
+            <input type="email" id="reset-email" class="w-full p-2.5 border border-gray-300 rounded-lg bg-white text-black text-sm" placeholder="가입한 이메일을 입력하세요"/>
+
+            <button id="pwd-request-btn" type="button" class="w-full bg-[#8e8e8e] text-white py-2.5 rounded-lg hover:bg-opacity-90 text-sm mt-6">
+                임시 비밀번호 이메일로 받기
+            </button>
+            
+            <hr class="my-4 border-gray-300">
+
+            <button id="verify-temp-password-btn" class="w-full bg-gray-600 text-white py-2.5 rounded-lg hover:bg-opacity-90 text-sm">
+                임시 비밀번호를 받았습니다 (다음) →
+            </button>
+        </div>
+    </div>
+  </div>
+  
+  <div id="new-password-modal" data-modal class="hidden fixed inset-0 z-50 bg-black bg-opacity-70 flex items-center justify-center p-4">
+    <div class="bg-[#f0f0f0] text-black rounded-xl px-8 py-6 max-w-md w-full mx-4 relative">
+        <button id="new-password-back-btn" data-modal-back>
+             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+        </button>
+        <button data-modal-close class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </button>
+        
+        <form class="w-full mt-10">
+            <label for="current-password" class="block text-sm text-[#333333] mb-2">임시 비밀번호 입력</label>
+            <input type="password" id="current-password" class="w-full p-2.5 border border-gray-300 rounded-lg bg-white text-black text-sm" />
+            <p class="text-red-500 text-xs mt-1.5 h-4 hidden">비밀번호가 일치하지 않습니다.</p>
+
+            <label for="new-password" class="block text-sm text-[#333333] mb-2 mt-5">신규 비밀번호 입력</label>
+            <input type="password" id="new-password" class="w-full p-2.5 border border-gray-300 rounded-lg bg-white text-black text-sm" />
+            <p class="text-red-500 text-xs mt-1.5 h-4 hidden">비밀번호가 일치하지 않습니다.</p>
+
+            <label for="new-password-confirm" class="block text-sm text-[#333333] mb-2 mt-5">신규 비밀번호 재입력</label>
+            <input type="password" id="new-password-confirm" class="w-full p-2.5 border border-gray-300 rounded-lg bg-white text-black text-sm" />
+            <p class="text-red-500 text-xs mt-1.5 h-4 hidden">비밀번호가 일치하지 않습니다.</p>
+
+            <ul class="text-xs text-gray-500 mt-5 list-disc list-inside space-y-1">
+                    <p>비밀번호를 입력하실 때는 아래 사항을 지켜주셔야 합니다.</p>
+                    <li>비밀번호는 최소 5자 이상 최대 16자 제한</li>
+                    <li>영문 대/소문자, 숫자, 특수문자 포함</li>
+            </ul>
+            
+            <button id="pwd-change-btn" type="button" class="w-full bg-[#8e8e8e] text-white py-2.5 rounded-lg hover:bg-opacity-90 text-sm mti5 !mt-8">
+                비밀번호 변경 확인
+            </button>
+        </form>
+    </div>
+  </div>
+
+  <div id="policy-modal" class="hidden fixed inset-0 z-50 bg-black bg-opacity-70 flex items-center justify-center p-4" data-modal>
+    <div class="bg-[#2d2d2d] text-white rounded-xl max-w-2xl w-full h-[85vh] flex flex-col relative shadow-2xl">
+        <div class="px-8 py-5 border-b border-gray-700 flex justify-between items-center">
+            <h2 id="policy-title" class="text-lg">정책</h2>
+            <button data-modal-close class="text-gray-400 hover:text-white transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <div id="policy-body" class="p-8 overflow-y-auto text-sm text-gray-300 leading-relaxed">
+            </div>
+    </div>
+  </div>
+</body>
+</html>

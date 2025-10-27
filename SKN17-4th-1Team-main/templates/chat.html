@@ -1,0 +1,637 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chative Jobs</title>
+    <link rel="icon" href="{% static 'images/logo.png' %}" type="image/x-icon">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <style>
+        @font-face {
+            font-family: 'AppleFont';
+            /* [수정] llm/ 경로 유지 */
+            src: url('{% static 'fonts/AppleSDGothicNeoB.ttf' %}') format('truetype');
+        }
+        html {
+            scroll-behavior: smooth;
+        }
+        body {
+            font-family: 'AppleFont', sans-serif;
+        }
+        header {
+            background: linear-gradient(to bottom, rgba(255, 255, 255, 0.5), transparent);
+        }
+        .chat-bubble {
+            background-color: white;
+            color: black;
+        }
+        ::-webkit-scrollbar {
+            display: none;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+            display: block !important;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #555; /* 스크롤바 색상 */
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .ptih5 {
+            padding-top: 0.5rem !important;
+        }
+        .bgcilgray {
+            background-color: #D9D9D9 !important;
+        }
+        .pt10 {
+            padding-top: 10px;
+        }
+        .mti1 {
+            margin-top: 1rem !important;
+        }
+        .mbihalf {
+            margin-bottom: 0.5rem !important;
+        }
+        .prose strong, .prose b {
+        font-weight: normal !important;
+        }
+        /* [추가] chat.html의 기존 스타일 */
+        .skeleton{background:linear-gradient(90deg,#e5e5e5 25%,#f3f3f3 37%,#e5e5e5 63%);background-size:400% 100%;animation:skeleton-shimmer 1.2s ease infinite}
+        @keyframes skeleton-shimmer{0%{background-position:100% 0}100%{background-position:0 0}}
+        .toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:#111;color:#fff;padding:12px 16px;border-radius:10px;box-shadow:0 8px 20px rgba(0,0,0,.2);z-index:80;opacity:.95}
+        .splitter{width:8px;cursor:col-resize;background:#bbb;border-radius:6px;margin:0 6px}
+    </style>
+</head>
+<body class="bg-[#333333] text-white">
+<form style="display:none">{% csrf_token %}</form>
+
+<header class="fixed top-0 left-0 right-0 p-4 z-50 flex justify-between items-center">
+    <div class="pt10">
+        <button id="toggle-sidebar-btn" class="text-gray-300 hover:text-white">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path id="toggle-sidebar-icon-path" stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+        </button>
+    </div>
+    <div class="flex items-center space-x-4">
+        <button id="logout-btn" class="bg-gray-200 text-black px-4 py-1.5 ptih5 rounded-full text-sm hover:bg-white transition-colors duration-300">
+            로그아웃
+        </button>
+        <button id="open-settings-btn" class="text-gray-300 hover:text-white transition-colors duration-300">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826 3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+        </button>
+    </div>
+</header>
+
+<div class="flex h-screen pt-16 box-border">
+    <aside id="left-sidebar" class="w-64 bgcilgray flex flex-col p-4 flex-shrink-0 rounded-2xl m-3 mr-0 transition-all duration-300">
+      <div id="sidebar-content" class="flex-grow flex flex-col overflow-hidden">
+        <h2 class="text-sm text-gray-700 mb-4 px-2">과거 채팅</h2>
+        
+        <nav id="conv-list" class="flex-1 overflow-auto custom-scrollbar space-y-2"></nav>
+
+        <div class="mt-4 pt-4 border-t border-gray-400">
+            <button id="new-chat-btn" class="w-full flex items-center justify-center p-2.5 border-2 border-dashed border-gray-400 rounded-lg text-gray-600 hover:border-gray-600 hover:text-black transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+            </button>
+        </div>
+      </div>
+    </aside>
+
+    <div class="flex flex-1 overflow-hidden">
+      <main id="pdf-container" class="w-1/2 bgcilgray rounded-2xl m-3 overflow-hidden hidden">
+        <div class="w-full h-full">
+          <div class="w-90 h-90 bgcilgray m-3 overflow-hidden h-full pb-6">
+            <div class="w-full h-full overflow-y-auto custom-scrollbar">
+              <iframe id="pdf-viewer" class="w-full h-full"></iframe>
+            </div>
+          </div>
+        </div>
+      </main>
+      <div id="splitter" class="splitter hidden" title="드래그하여 크기 조절"></div>
+
+      <aside id="chat-container" class="w-4/5 flex flex-col flex-shrink-0 rounded-2xl m-3 mx-auto bgcilgray relative">
+
+        <div class="flex-grow p-5 overflow-y-auto custom-scrollbar pb-28">
+          <div id="chat-messages" class="flex flex-col justify-end space-y-4 min-h-full">
+            <div id="chat-placeholder" class="flex flex-col items-center justify-center text-center h-full absolute inset-0 px-5 pb-28">
+                <span class="text-2xl text-black">
+                    생각을 넓히는 시작.
+                </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="absolute bottom-0 left-0 right-0 p-4 pt-0">
+            <div class="flex items-center bg-white rounded-lg p-2 shadow-lg">
+                <button id="open-upload" class="p-2 text-gray-500 hover:text-gray-700">
+                    <img src="{% static 'images/uploadbtn.png' %}" class="w-6 h-6 rounded-full object-contain flex-shrink-0">
+                </button>
+                <input type="file" id="file-upload" class="hidden" accept=".pdf"/>
+                <textarea id="chat-textarea" placeholder="물어보기" rows="1" maxlength="1000" class="flex-1 bg-transparent text-sm text-black px-2 focus:outline-none placeholder-gray-500 resize-none overflow-hidden leading-tight py-2"></textarea>
+                <button id="send-btn" class="p-1.5 bg-black rounded-full text-white hover:bg-gray-700 flex-shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                    </svg>
+                </button>
+            </div>
+            <p class="text-xs text-right text-black mt-3 pr-3">최대 1,000자</p>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <div id="settings-modal" class="hidden fixed inset-0 z-[60] bg-black bg-opacity-50 flex items-center justify-center p-4">
+    <div class="bg-gray-200 p-6 rounded-2xl shadow-xl w-full max-w-md relative">
+        <button id="close-settings-btn" class="absolute top-4 right-4 text-gray-700 hover:text-black transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </button>
+        <h2 class="text-xl text-center text-[#333333] mb-6">설정</h2>
+        <div class="space-y-2 mb-6">
+            <div class="text-sm">
+                <a href="#" id="open-terms" class="text-blue-600 hover:underline">서비스 이용약관</a>
+                <span class="text-[#333333]"> 확인하기</span>
+            </div>
+            <div class="text-sm">
+                <a href="#" id="open-privacy" class="text-blue-600 hover:underline">개인정보 보호정책</a>
+                <span class="text-[#333333]"> 확인하기</span>
+            </div>
+            <div class="text-sm">
+                <a href="#" id="open-change-pwd" class="text-blue-600 hover:underline">비밀번호 변경하기</a>
+            </div>
+        </div>
+        <p class="text-sm text-[#333333] mb-6 ptih5">
+            탈퇴를 하게 될 경우 30일까지 정보가 저장되며<br>
+            30일 이후부터 모든 정보가 자동 삭제됩니다.
+        </p>
+        <button id="open-confirm-modal-btn" class="w-full bg-red-600 text-white py-2.5 rounded-lg hover:bg-red-700 transition-colors text-base">
+            탈퇴
+        </button>
+    </div>
+  </div>
+
+  <div id="policy-modal" class="hidden fixed top-0 left-0 right-0 bottom-0 bg-black bg-opacity-70 z-[70] flex items-center justify-center p-4">
+    <div class="bg-[#2d2d2d] text-white rounded-xl max-w-2xl w-full h-[85vh] flex flex-col relative shadow-2xl">
+        <div class="px-8 py-5 border-b border-gray-700 flex justify-between items-center">
+            <h2 id="policy-title" class="text-lg">정책</h2>
+            <button id="close-policy" class="text-gray-400 hover:text-white transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <div id="policy-body" class="p-8 overflow-y-auto text-sm text-gray-300 leading-relaxed custom-scrollbar"></div>
+    </div>
+  </div>
+
+  <div id="pwd-change-modal" class="hidden fixed inset-0 z-[60] bg-black bg-opacity-70 flex items-center justify-center p-4">
+    <div class="bg-[#f0f0f0] rounded-xl px-8 py-6 max-w-md w-full mx-4 relative text-black">
+        <div class="flex justify-between items-center mb-6">
+            <button id="new-password-back-btn" class="text-gray-600 hover:text-black transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+            </button>
+            <button id="close-pwd-change-btn" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        <div class="w-full">
+            <label for="pwd-current" class="block text-sm text-[#333333] mb-2">현재 비밀번호 입력</label>
+            <input type="password" id="pwd-current" class="w-full p-2.5 border border-gray-300 rounded-lg bg-white text-black text-sm" />
+
+            <label for="pwd-new1" class="block text-sm text-[#333333] mb-2 mt-5">신규 비밀번호 입력</label>
+            <input type="password" id="pwd-new1" class="w-full p-2.5 border border-gray-300 rounded-lg bg-white text-black text-sm" />
+
+            <label for="pwd-new2" class="block text-sm text-[#333333] mb-2 mt-5">신규 비밀번호 재입력</label>
+            <input type="password" id="pwd-new2" class="w-full p-2.5 border border-gray-300 rounded-lg bg-white text-black text-sm" />
+            
+            <ul class="text-xs text-gray-500 mt-5 list-disc list-inside space-y-1">
+                <p>비밀번호를 입력하실 때는 아래 사항을 지켜주셔야 합니다.</p>
+                <li>비밀번호는 최소 5자 이상 최대 16자 제한</li>
+                <li>영문 대/소문자, 숫자, 특수문자 포함</li>
+            </ul>
+            <button id="pwd-change-btn" type="button" class="w-full bg-[#8e8e8e] text-white py-2.5 rounded-lg hover:bg-opacity-90 text-sm mti5 !mt-8">
+                비밀번호 변경 확인
+            </button>
+        </div>
+    </div>
+  </div>
+
+  <div id="confirm-withdrawal-modal" class="hidden fixed inset-0 z-[60] bg-black bg-opacity-50 flex items-center justify-center p-4">
+    <div class="bg-gray-200 p-6 rounded-2xl shadow-xl w-full max-w-md relative text-black">
+        <button id="close-confirm-modal-btn" class="absolute top-4 right-4 text-gray-700 hover:text-black transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </button>
+        <h2 class="text-xl text-center text-[#333333] mb-6">정말로 탈퇴 하시겠습니까?</h2>
+        <p class="text-sm text-[#333333] text-center mb-6">
+            아래 탈퇴 버튼을 누르시면 탈퇴가 됩니다.<br>
+            정말로 탈퇴 하시겠습니까?
+        </p>
+        <button id="delete-request-btn" class="block w-full bg-red-600 text-white py-2.5 rounded-lg hover:bg-red-700 transition-colors text-base text-center">
+            탈퇴
+        </button>
+    </div>
+  </div>
+
+  <div id="pdf-guide-modal" class="hidden fixed inset-0 z-[60] bg-black bg-opacity-50 flex items-center justify-center p-4">
+    <div class="bg-gray-200 p-6 rounded-2xl shadow-xl w-full max-w-md relative text-black">
+        <button id="close-pdf-guide" class="absolute top-4 right-4 text-gray-700 hover:text-black transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </button>
+        <h2 class="text-xl text-center text-[#333333] mb-6">PDF 업로드 안내</h2>
+        <p class="text-sm text-[#333333] text-left mb-6">
+            PDF 업로드는 최초 1회(최대 10MB)만 가능하며<br>
+            1회 업로드 후에는 PDF 수정이 불가합니다.<br>
+            PDF 업로드를 원하신다면 아래 PDF 업로드하기 버튼을 눌러 주십시오.
+        </p>
+        <div class="flex gap-2">
+            <button id="pdf-guide-cancel" class="flex-1 bg-gray-300 rounded-lg py-2">취소</button>
+            <button id="pdf-guide-ok" class="flex-1 bg-black text-white rounded-lg py-2">업로드</button>
+        </div>
+    </div>
+  </div>
+  
+  <div id="toast-root" style="position:fixed;left:0;right:0;bottom:20px;display:grid;place-items:center;z-index:80;pointer-events:none"></div>
+  
+  <script>
+    function showToast(msg){const r=document.getElementById('toast-root');const t=document.createElement('div');t.className='toast';t.innerText=msg;r.appendChild(t);setTimeout(()=>{t.remove();},2000)}
+    const getCookie=(name)=>{const v=`; ${document.cookie}`;const p=v.split(`; ${name}=`);if(p.length===2)return p.pop().split(';').shift();};
+    const csrftoken=getCookie('csrftoken');
+
+    // [유지] chat.html의 모든 요소 정의
+    const convList=document.getElementById('conv-list');
+    const newChatBtn=document.getElementById('new-chat-btn');
+    const chatEl=document.getElementById('chat-messages');
+    const chatPlaceholder=document.getElementById('chat-placeholder');
+    const textarea=document.getElementById('chat-textarea');
+    const sendBtn=document.getElementById('send-btn');
+    const fileBtn=document.getElementById('open-upload');
+    const fileInput=document.getElementById('file-upload');
+    const pdfContainer=document.getElementById('pdf-container');
+    const pdfViewer=document.getElementById('pdf-viewer');
+    const chatContainer=document.getElementById('chat-container');
+    const splitter=document.getElementById('splitter');
+    let pdfWidthUser = null;
+
+    // [수정] chat_design.html의 모달 ID에 맞게 수정
+    const settingsModal=document.getElementById('settings-modal');
+    const openSettings=document.getElementById('open-settings-btn');
+    const closeSettings=document.getElementById('close-settings-btn');
+    const deleteRequestBtn=document.getElementById('delete-request-btn'); // [수정] 최종 삭제 버튼
+    const logoutBtn=document.getElementById('logout-btn');
+
+    const pwdChangeModal=document.getElementById('pwd-change-modal');
+    const openPwdChange=document.getElementById('open-change-pwd');
+    const closePwdChange=document.getElementById('close-pwd-change-btn');
+    const pwdChangeBtn=document.getElementById('pwd-change-btn');
+    
+    // [신규] 2단계 탈퇴 모달용 요소
+    const openConfirmModalBtn = document.getElementById('open-confirm-modal-btn');
+    const confirmModal = document.getElementById('confirm-withdrawal-modal');
+    const closeConfirmModalBtn = document.getElementById('close-confirm-modal-btn');
+
+
+    let currentConvId=null;
+
+    function open(el){el.classList.remove('hidden');}
+    function close(el){el.classList.add('hidden');}
+
+    // [수정] loadConversations, chat_design의 3-dot-menu HTML 적용
+    async function loadConversations(){
+      const r=await fetch('/llm/api/conversations'); const j=await r.json();
+      if(!j.ok) return; convList.innerHTML='';
+      (j.items||[]).forEach(item=>{
+        const row=document.createElement('div'); row.className='relative chat-item-wrapper';
+        const isActive = String(currentConvId) === String(item.id);
+        const bgColorClass = isActive ? 'bg-white' : 'bg-gray-200'; // 활성: 흰색, 비활성: 연한 회색
+
+        row.innerHTML=`
+          <a href="#" data-id="${item.id}" class="flex justify-between items-center p-2 rounded-lg ${bgColorClass} transition-colors group">
+            <div class="flex-1 overflow-hidden whitespace-nowrap text-ellipsis">
+              <span class="text-sm text-black">• ${item.title||'새 채팅'}</span>
+              <span class="text-xs text-gray-600 block">시작일 : ${item.updated_at||''}</span>
+            </div>
+            <button class="more-options-btn p-1 text-gray-600 hover:text-black z-10 relative">
+                <svg class="w-5 h-5 pointer-events-none" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v.01M12 12v.01M12 19v.01" />
+                </svg>
+            </button>
+          </a>
+          <div class="options-menu hidden absolute top-8 right-0 w-28 bg-white rounded-md shadow-lg border border-gray-200 z-20">
+            <button class="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rename-btn flex items-center space-x-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                <span>수정</span>
+            </button>
+            <button class="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-gray-100 delete-btn flex items-center space-x-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                <span>삭제</span>
+            </button>
+          </div>`;
+        convList.appendChild(row);
+      });
+    }
+
+    // [유지] chat.html의 나머지 JS 함수 (loadConversation, highlightActive, appendMessage 등)
+    async function loadConversation(id){
+      const r=await fetch('/llm/api/chat/history?conversation_id='+id); const j=await r.json();
+      if(!j.ok) return; currentConvId=j.conversation_id; chatEl.innerHTML='';
+      if(j.uploaded_pdf_url){ pdfContainer.classList.remove('hidden'); pdfViewer.src=j.uploaded_pdf_url; splitter.classList.remove('hidden'); adjustLayout(); }
+      else { pdfContainer.classList.add('hidden'); splitter.classList.add('hidden'); adjustLayout(); }
+      (j.items||[]).forEach(m=> appendMessage(m.role,m.content));
+      chatPlaceholder.classList.add('hidden');
+      highlightActive();
+    }
+
+    function highlightActive(){
+      convList.querySelectorAll('a[data-id]').forEach(a=>{
+        const isActive = String(a.getAttribute('data-id')) === String(currentConvId||'');
+        // 배경색 클래스 토글
+        a.classList.toggle('bg-white', isActive);
+        a.classList.toggle('bg-gray-200', !isActive);
+      });
+    }
+
+    // [수정] chat_design의 AI 아바타 이미지 경로 수정
+    function appendMessage(role, content, elapsed_ms){
+      const row=document.createElement('div'); row.className='flex items-end gap-2 '+(role==='user'?'justify-end':'justify-start');
+      let extra=''; if(role!=='user' && typeof elapsed_ms==='number'){ extra=`<div class="text-[10px] text-gray-700 mt-1">${(elapsed_ms/1000).toFixed(2)}s</div>`; }
+      const bubble=document.createElement('div'); 
+      
+      if(role === 'user'){
+        bubble.className='max-w-[62ch] px-4 py-3 rounded-2xl shadow bg-white text-black';
+        bubble.innerHTML=content+extra;
+      } else {
+        // AI 응답: chat_design.html의 버블 스타일(로고 포함) 적용
+        row.className = 'flex justify-start items-start space-x-3';
+        const htmlContent = marked.parse(content || ''); // 마크다운을 HTML로 변환
+        row.innerHTML = `<img src="{% static 'images/logo.png' %}" alt="AI Avatar" class="w-8 h-8 rounded-full object-contain flex-shrink-0">
+                          <div class="chat-bubble p-3 rounded-lg max-w-md shadow flex flex-col bg-white text-black">
+                          <div class="text-sm prose max-w-none font-normal" style="font-weight: normal !important;">${htmlContent}</div>
+                          ${extra ? `<span class="text-xs text-gray-500 text-right mt-2">${(elapsed_ms/1000).toFixed(2)}s</span>` : ''}
+                          </div>`;
+        chatEl.appendChild(row); 
+        chatEl.parentElement.scrollTop=chatEl.parentElement.scrollHeight;
+        return; //innerHTML을 직접 설정했으므로 조기 리턴
+      }
+      
+      row.appendChild(bubble); chatEl.appendChild(row); chatEl.parentElement.scrollTop=chatEl.parentElement.scrollHeight;
+    }
+
+    function appendSkeleton(){
+      const row=document.createElement('div'); row.className='flex items-end gap-2 justify-start'; row.id='skeleton-row';
+      const bubble=document.createElement('div'); bubble.className='max-w-[62ch] px-4 py-5 rounded-2xl shadow bg-gray-200 skeleton'; bubble.style.width='280px';
+      row.appendChild(bubble); chatEl.appendChild(row); chatEl.parentElement.scrollTop=chatEl.parentElement.scrollHeight;
+    }
+    function removeSkeleton(){ const s=document.getElementById('skeleton-row'); if(s) s.remove(); }
+
+    async function sendMessage(){
+      const text=(textarea.value||'').trim(); if(!text) return; appendMessage('user', text); textarea.value='';
+      textarea.style.height = 'auto'; // [추가] 높이 초기화
+      
+      const fd=new FormData(); fd.append('message', text); if(currentConvId) fd.append('conversation_id', currentConvId);
+      appendSkeleton();
+      try{
+        const r=await fetch('/llm/api/chat/send', {method:'POST', body:fd, headers:{'X-CSRFToken':csrftoken}});
+        const j=await r.json(); removeSkeleton();
+        if(j.ok){ currentConvId=j.conversation_id; const it=j.item||{}; appendMessage(it.role||'assistant', it.content||'', it.elapsed_ms); loadConversations(); }
+        else { appendMessage('assistant', j.error || '에러가 발생했습니다.'); }
+      }catch(e){ removeSkeleton(); appendMessage('assistant','에러가 발생했습니다.'); showToast('오류가 발생했습니다'); }
+    }
+
+    // [수정] Textarea 리사이징 (chat_design.html의 로직)
+    let initialTextareaHeight = 0;
+    if(textarea) {
+        initialTextareaHeight = textarea.scrollHeight;
+        textarea.addEventListener('input', () => {
+            textarea.style.height = 'auto';
+            textarea.style.height = `${textarea.scrollHeight}px`;
+        });
+        textarea.addEventListener('keydown', (e)=>{ if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){ e.preventDefault(); sendMessage(); textarea.style.height = `${initialTextareaHeight}px`; }});
+    }
+    sendBtn.addEventListener('click', () => {
+        sendMessage();
+        textarea.style.height = `${initialTextareaHeight}px`;
+    });
+
+    // [수정] PDF Guide Modal ID 변경
+    const pdfGuide=document.getElementById('pdf-guide-modal');
+    const pdfGuideOpen=()=>{ pdfGuide.classList.remove('hidden'); };
+    const pdfGuideClose=()=>{ pdfGuide.classList.add('hidden'); };
+    document.getElementById('close-pdf-guide').addEventListener('click', pdfGuideClose);
+    document.getElementById('pdf-guide-cancel').addEventListener('click', pdfGuideClose);
+    document.getElementById('pdf-guide-ok').addEventListener('click', ()=>{ localStorage.setItem('seenPdfGuide','1'); pdfGuideClose(); fileInput.click(); });
+    fileBtn.addEventListener('click', ()=>{ if(localStorage.getItem('seenPdfGuide')==='1'){ fileInput.click(); } else { pdfGuideOpen(); } });
+    
+    // [유지] fileInput 'change' 이벤트
+    fileInput.addEventListener('change', async (e)=>{
+      const f=e.target.files&&e.target.files[0]; if(!f) return;
+      if(f.size>10*1024*1024){ alert('10MB 이하의 PDF만 업로드 가능합니다.'); fileInput.value=''; return; }
+      showToast('PDF 업로드 중…');
+      fileBtn.disabled = true;
+      const fd=new FormData(); fd.append('file', f); if(currentConvId) fd.append('conversation_id', currentConvId);
+      try{
+        const r=await fetch('/llm/api/file/upload',{method:'POST', body:fd, headers:{'X-CSRFToken':csrftoken}});
+        const j=await r.json();
+        if(j.ok){
+          currentConvId=j.conversation_id;
+          pdfContainer.classList.remove('hidden'); splitter.classList.remove('hidden');
+          pdfViewer.src=j.url; adjustLayout(); loadConversations();
+          if(j.ingest_ok){ showToast('PDF 업로드 및 인덱싱 완료'); }
+          else { showToast('PDF 업로드는 완료했지만 인덱싱 실패 (채팅 품질 저하 가능)'); }
+        }else{ showToast(j.error||'업로드 실패'); }
+      }catch(err){ showToast('네트워크 오류: 업로드 실패'); }
+      finally{ fileInput.value=''; fileBtn.disabled = false; }
+    });
+
+    // [유지] Sidebar toggle & layout adjust (chat.html의 기능)
+    const toggleBtn=document.getElementById('toggle-sidebar-btn');
+    const iconPath=document.getElementById('toggle-sidebar-icon-path');
+    const iconPathLeft = "M15 19l-7-7 7-7"; // <
+    const iconPathRight = "M9 5l7 7-7 7";  // >
+    
+    function sidebarHidden(){ return document.getElementById('left-sidebar').classList.contains('w-0'); }
+    function adjustLayout(){
+      const pdfVisible = !pdfContainer.classList.contains('hidden');
+      const sbHidden = sidebarHidden();
+      if(pdfVisible){ 
+          const base = 50; // 기본 50%
+          const pdfW = (pdfWidthUser !== null ? pdfWidthUser : base); 
+          const chatW = 100 - pdfW; 
+          pdfContainer.style.width = pdfW + '%'; 
+          chatContainer.style.width = chatW + '%'; 
+          chatContainer.classList.remove('w-4/5', 'mx-auto'); // [추가] mx-auto 제거
+          splitter.classList.remove('hidden'); 
+      } else { 
+          chatContainer.style.width = ''; // width 초기화
+          pdfContainer.style.width = '0%'; 
+          chatContainer.classList.add('w-4/5', 'mx-auto'); // [추가] mx-auto 복원
+          splitter.classList.add('hidden'); 
+      }
+    }
+    
+    // [수정] chat_design.html의 사이드바 토글 방식(CSS class) 적용
+    function setSidebar(display){ 
+        const sb=document.getElementById('left-sidebar'); 
+        const sbContent = document.getElementById('sidebar-content');
+        if(display === 'none'){ // 숨기기
+            sb.classList.remove('w-64', 'p-4', 'm-3', 'mr-0');
+            sb.classList.add('w-0', 'p-0', 'm-0');
+            sbContent.classList.add('hidden');
+            iconPath.setAttribute('d', iconPathRight);
+        } else { // 보이기
+            sb.classList.remove('w-0', 'p-0', 'm-0');
+            sb.classList.add('w-64', 'p-4', 'm-3', 'mr-0');
+            sbContent.classList.remove('hidden');
+            iconPath.setAttribute('d', iconPathLeft);
+        }
+        adjustLayout(); 
+    }
+    toggleBtn.addEventListener('click', ()=>{ setSidebar(sidebarHidden()?'flex':'none'); });
+
+    // [유지] Splitter
+    (function(){
+      let dragging=false; let startX=0; let startPdfPx=0; let total=0;
+      function down(e){ if(pdfContainer.classList.contains('hidden')) return; dragging=true; startX=e.clientX; const rect=pdfContainer.parentElement.getBoundingClientRect(); total=rect.width; startPdfPx=pdfContainer.getBoundingClientRect().width; document.body.style.userSelect='none'; }
+      function move(e){ if(!dragging) return; const dx=e.clientX-startX; const newPx=startPdfPx+dx; let newPct=(newPx/total)*100; newPct=Math.max(15, Math.min(85, newPct)); pdfWidthUser=newPct; adjustLayout(); }
+      function up(){ if(!dragging) return; dragging=false; document.body.style.userSelect=''; }
+      splitter.addEventListener('mousedown', down);
+      window.addEventListener('mousemove', move);
+      window.addEventListener('mouseup', up);
+    })();
+
+    // [유지] Sidebar interactions (메뉴/삭제/수정/선택)
+    convList.addEventListener('click', async (e)=>{
+      const more=e.target.closest('.more-options-btn');
+      if(more){ e.preventDefault(); e.stopPropagation(); const wrap=more.closest('.chat-item-wrapper'); const menu=wrap.querySelector('.options-menu'); document.querySelectorAll('.options-menu').forEach(x=> { if (x !== menu) x.classList.add('hidden'); }); menu.classList.toggle('hidden'); return; }
+      const del=e.target.closest('.delete-btn'); if(del){ e.stopPropagation(); const id=del.closest('.chat-item-wrapper').querySelector('a[data-id]').getAttribute('data-id'); if(confirm('삭제하시겠습니까?')){ const fd=new FormData(); fd.append('id', id); await fetch('/llm/api/conversations/delete',{method:'POST', body:fd, headers:{'X-CSRFToken':csrftoken}}); loadConversations(); chatEl.innerHTML=''; pdfContainer.classList.add('hidden'); chatPlaceholder.classList.remove('hidden'); currentConvId=null; showToast('삭제되었습니다'); } return; }
+      const ren=e.target.closest('.rename-btn'); if(ren){ e.stopPropagation(); const id=ren.closest('.chat-item-wrapper').querySelector('a[data-id]').getAttribute('data-id'); const t=prompt('제목 수정'); if(t!==null){ const fd=new FormData(); fd.append('id', id); fd.append('title', t); await fetch('/llm/api/conversations/rename',{method:'POST', body:fd, headers:{'X-CSRFToken':csrftoken}}); loadConversations(); showToast('수정되었습니다'); } return; }
+      const a=e.target.closest('a[data-id]'); if(a){ e.preventDefault(); const id=a.getAttribute('data-id'); await loadConversation(id); return; }
+    });
+     // [추가] 3-dot-menu 외 영역 클릭 시 닫기
+    document.addEventListener('click', (event) => {
+        if (!event.target.closest('.chat-item-wrapper')) {
+            document.querySelectorAll('.options-menu').forEach(menu => {
+                menu.classList.add('hidden');
+            });
+        }
+    });
+
+    // [유지] New Chat
+    newChatBtn.addEventListener('click', async ()=>{ const r=await fetch('/llm/api/conversations/new',{method:'POST', headers:{'X-CSRFToken':csrftoken}}); const j=await r.json(); if(j.ok){ loadConversations(); chatEl.innerHTML=''; pdfContainer.classList.add('hidden'); splitter.classList.add('hidden'); adjustLayout(); chatPlaceholder.classList.remove('hidden'); currentConvId=j.id; highlightActive(); showToast('새 채팅이 생성되었습니다'); }});
+
+    // --- [교체] Settings / Deletion / Password Change Logic (with back button & common close) ---
+    
+    // 공통 모달 닫기 함수 (chat_design.html 로직)
+    function setupModalCloseListeners(modalId, closeBtnId, overlayClickCloses = true) {
+        const modal = document.getElementById(modalId);
+        const closeBtn = document.getElementById(closeBtnId);
+        if (!modal) return;
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => close(modal)); // 그냥 닫기만 함
+        }
+        if (overlayClickCloses) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) close(modal); // 배경 클릭 시 닫기
+            });
+        }
+    }
+
+    // 설정 모달 열기/닫기
+    openSettings.addEventListener('click', ()=> open(settingsModal));
+    setupModalCloseListeners('settings-modal', 'close-settings-btn');
+
+    // 로그아웃
+    logoutBtn.addEventListener('click', async ()=>{ await fetch('/uauth/api/logout/'); window.location.href='/llm/'; });
+    
+    // 설정 -> 탈퇴 확인 모달 열기
+    openConfirmModalBtn.addEventListener('click', () => { close(settingsModal); open(confirmModal); });
+    // 탈퇴 확인 모달 닫기 (X 버튼, 배경 클릭)
+    setupModalCloseListeners('confirm-withdrawal-modal', 'close-confirm-modal-btn');
+    // 최종 탈퇴 요청
+    deleteRequestBtn.addEventListener('click', async ()=>{ if(confirm('탈퇴하시겠습니까? 30일간 복구 가능합니다.')){ const r=await fetch('/uauth/api/delete_request/',{method:'POST', headers:{'X-CSRFToken':csrftoken}}); const j=await r.json(); if(j.ok){ alert('탈퇴 대기 상태로 전환되었습니다.'); window.location.href='/llm/'; } }});
+    
+    // 설정 -> 비밀번호 변경 모달 열기
+    openPwdChange.addEventListener('click', (e)=>{ e.preventDefault(); close(settingsModal); open(pwdChangeModal); });
+    // 비밀번호 변경 모달 닫기 (X 버튼, 배경 클릭)
+    setupModalCloseListeners('new-password-modal', 'close-pwd-change-btn'); // ID는 new-password-modal 사용
+    
+    // 비밀번호 변경 -> 설정 (뒤로가기 버튼)
+    const newPasswordBackBtn = document.getElementById('new-password-back-btn');
+    if (newPasswordBackBtn) {
+        newPasswordBackBtn.addEventListener('click', () => {
+            close(pwdChangeModal); 
+            open(settingsModal); 
+        });
+    }
+
+    // 비밀번호 변경 API 호출
+    pwdChangeBtn.addEventListener('click', async ()=>{ const cur=document.getElementById('pwd-current').value.trim(); const p1=document.getElementById('pwd-new1').value.trim(); const p2=document.getElementById('pwd-new2').value.trim(); const fd=new FormData(); fd.append('current_password',cur); fd.append('password1',p1); fd.append('password2',p2); const r=await fetch('/uauth/api/password/change/',{method:'POST', body:fd, headers:{'X-CSRFToken':csrftoken}}); const j=await r.json(); if(j.ok){ alert('비밀번호가 변경되었습니다.'); close(pwdChangeModal);} else { alert(j.message||'변경 실패'); }});
+
+    // --- 설정 관련 로직 끝 ---
+    
+    // [신규] 2단계 탈퇴 로직
+    openConfirmModalBtn.addEventListener('click', () => { close(settingsModal); open(confirmModal); });
+    closeConfirmModalBtn.addEventListener('click', () => close(confirmModal));
+    deleteRequestBtn.addEventListener('click', async ()=>{ if(confirm('탈퇴하시겠습니까? 30일간 복구 가능합니다.')){ const r=await fetch('/uauth/api/delete_request/',{method:'POST', headers:{'X-CSRFToken':csrftoken}}); const j=await r.json(); if(j.ok){ alert('탈퇴 대기 상태로 전환되었습니다.'); window.location.href='/llm/'; } }});
+    
+    // [유지] 비밀번호 변경 로직
+    openPwdChange.addEventListener('click', (e)=>{ e.preventDefault(); close(settingsModal); open(pwdChangeModal); });
+    closePwdChange.addEventListener('click', ()=> { close(pwdChangeModal); open(settingsModal); }); // [수정] 닫을 때 설정창 다시 열기
+    pwdChangeBtn.addEventListener('click', async ()=>{ const cur=document.getElementById('pwd-current').value.trim(); const p1=document.getElementById('pwd-new1').value.trim(); const p2=document.getElementById('pwd-new2').value.trim(); const fd=new FormData(); fd.append('current_password',cur); fd.append('password1',p1); fd.append('password2',p2); const r=await fetch('/uauth/api/password/change/',{method:'POST', body:fd, headers:{'X-CSRFToken':csrftoken}}); const j=await r.json(); if(j.ok){ alert('비밀번호가 변경되었습니다.'); close(pwdChangeModal);} else { alert(j.message||'변경 실패'); }});
+
+    // [유지] 정책 모달 (chat.html의 기능)
+    (function(){ 
+      const modal=document.getElementById('policy-modal'); 
+      const title=document.getElementById('policy-title'); 
+      const body=document.getElementById('policy-body'); 
+      const openPol=(t,html)=>{ title.textContent=t; body.innerHTML=html; modal.classList.remove('hidden'); }; 
+      document.getElementById('close-policy').addEventListener('click', ()=> modal.classList.add('hidden')); 
+      
+      const fetchPolicy = async (e, type) => {
+          e.preventDefault(); 
+          const url = (type === 'terms') ? '/llm/policy/terms' : '/llm/policy/privacy';
+          const titleText = (type === 'terms') ? '서비스 이용약관' : '개인정보 보호정책';
+          try {
+              const r = await fetch(url); 
+              const j = await r.json(); 
+              openPol(titleText, j.html||'');
+          } catch(_) {
+              openPol(titleText, '<div class=\"text-red-600\">불러오기 실패</div>');
+          }
+      };
+      
+      document.getElementById('open-terms').addEventListener('click',(e) => fetchPolicy(e, 'terms')); 
+      document.getElementById('open-privacy').addEventListener('click',(e) => fetchPolicy(e, 'privacy')); 
+    })();
+
+    // Initial load
+    (async()=>{ await loadConversations(); const first=convList.querySelector('a[data-id]'); if(first){ await loadConversation(first.getAttribute('data-id')); } })();
+
+    // ESC로 모달 닫기
+    window.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ 
+        [policyModal, pdfGuide, settingsModal, pwdChangeModal, confirmModal].forEach(m=>{ 
+            if(m && !m.classList.contains('hidden')) m.classList.add('hidden'); 
+        }); 
+    } });
+  </script>
+</body>
+</html>
